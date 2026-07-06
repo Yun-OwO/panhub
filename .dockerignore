@@ -1,0 +1,15 @@
+node_modules
+.output
+.nuxt
+.git
+.gitignore
+.cache
+.DS_Store
+.env*
+coverage
+.github
+docs
+test
+*.test.ts
+*.test.mjs
+

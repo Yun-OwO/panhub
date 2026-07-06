@@ -1,0 +1,59 @@
+{
+  "name": "panhub.shenzjd.com",
+  "version": "1.0.0",
+  "description": "PanHub · 全网最全的网盘搜索工具",
+  "type": "module",
+  "private": true,
+  "author": {
+    "name": "shenzjd",
+    "url": "https://github.com/wu529778790/panhub.shenzjd.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wu529778790/panhub.shenzjd.com.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wu529778790/panhub.shenzjd.com/issues"
+  },
+  "homepage": "https://github.com/wu529778790/panhub.shenzjd.com#readme",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:api": "node ./test/api.test.mjs",
+    "test:coverage": "vitest run --coverage",
+    "deploy:cf": "wrangler deploy"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "nuxt": "^4.0.3",
+    "ofetch": "^1.4.1",
+    "p-limit": "^7.2.0",
+    "sql.js": "^1.14.1",
+    "TagCloud": "^2.5.0",
+    "vue": "^3.5.18",
+    "vue-router": "^4.5.1",
+    "wx-auth-sdk": "^1.2.8"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11",
+    "@vitest/coverage-v8": "^2.1.0",
+    "vitest": "^2.1.9"
+  },
+  "license": "MIT",
+  "keywords": [
+    "panhub",
+    "网盘搜索",
+    "阿里云盘",
+    "夸克",
+    "百度网盘",
+    "115",
+    "迅雷",
+    "nuxt",
+    "cloudflare-workers"
+  ]
+}

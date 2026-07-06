@@ -1,0 +1,11 @@
+name = "panhub-hub"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-07-15"
+compatibility_flags = ["nodejs_compat"]
+account_id = "4a644b5c174d18aa3f7fd8b0453123c3"
+
+[assets]
+directory = ".output/public"
+binding = "ASSETS"
+
+
