@@ -10,6 +10,60 @@ export interface TgFetchOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * TG 代理源列表：尝试直连 t.me（Vercel/Docker 等非 CF 环境可以直连），
+ * 若失败则依次尝试 jina 代理和自建 CF Worker 代理。
+ */
+const TG_PROXIES: Array<{ name: string; buildUrl: (channel: string, before?: string) => string }> = [
+  {
+    name: "direct",
+    buildUrl: (ch: string, before?: string) => {
+      const base = `https://t.me/s/${encodeURIComponent(ch)}`;
+      return before ? `${base}?before=${before}` : base;
+    },
+  },
+  {
+    name: "jina",
+    buildUrl: (ch: string, before?: string) => {
+      const base = `https://r.jina.ai/https://t.me/s/${encodeURIComponent(ch)}`;
+      return before ? `${base}?before=${before}` : base;
+    },
+  },
+  {
+    name: "cf-worker-proxy",
+    buildUrl: (ch: string, before?: string) => {
+      const base = `https://tg-proxy-panhub.ddns-updater.workers.dev/s/${encodeURIComponent(ch)}`;
+      return before ? `${base}?before=${before}` : base;
+    },
+  },
+];
+
+async function fetchWithProxies(
+  channel: string,
+  before: string | undefined,
+  ua: string,
+  signal: AbortSignal | undefined
+): Promise<string> {
+  for (const proxy of TG_PROXIES) {
+    if (signal?.aborted) return "";
+    const url = proxy.buildUrl(channel, before);
+    try {
+      const html = await ofetch<string>(url, {
+        headers: { "user-agent": ua },
+        signal,
+        timeout: 6000,
+      });
+      if (html && html.includes("tgme_widget_message")) {
+        logger.debug?.(`TG fetch success via ${proxy.name} for ${channel}`);
+        return html;
+      }
+    } catch (e: any) {
+      logger.debug?.(`TG proxy ${proxy.name} failed for ${channel}: ${e?.message || e}`);
+    }
+  }
+  return "";
+}
+
 export async function fetchTgChannelPosts(
   channel: string,
   keyword: string,
@@ -25,30 +79,9 @@ export async function fetchTgChannelPosts(
   let before: string | undefined;
 
   for (let page = 0; page < maxPages && allResults.length < limit; page++) {
-    // 客户端断开时提前退出分页循环
     if (options.signal?.aborted) break;
 
-    const baseUrl = `https://t.me/s/${encodeURIComponent(channel)}`;
-    const url = before ? `${baseUrl}?before=${before}` : baseUrl;
-
-    let html = "";
-    try {
-      html = await ofetch<string>(url, { headers: { "user-agent": ua }, signal: options.signal });
-    } catch (e: any) {
-      logger.debug?.(`TG fetch failed for ${url}: ${e?.message || e}`);
-    }
-
-    if (!html || !html.includes("tgme_widget_message")) {
-      const mirrorUrl = before
-        ? `https://r.jina.ai/https://t.me/s/${encodeURIComponent(channel)}?before=${before}`
-        : `https://r.jina.ai/https://t.me/s/${encodeURIComponent(channel)}`;
-
-      try {
-        html = await ofetch<string>(mirrorUrl, { headers: { "user-agent": ua }, signal: options.signal });
-      } catch (e: any) {
-        logger.debug?.(`TG mirror fetch failed for ${mirrorUrl}: ${e?.message || e}`);
-      }
-    }
+    const html = await fetchWithProxies(channel, before, ua, options.signal);
 
     if (!html || !html.includes("tgme_widget_message")) {
       break;
@@ -72,7 +105,6 @@ export async function fetchTgChannelPosts(
     }
 
     if (page < maxPages - 1 && allResults.length < limit) {
-      // 随机 jitter 避免多频道并行时同步突发被 t.me 限流
       const jitter = 50 + Math.floor(Math.random() * 100);
       await new Promise((resolve) => setTimeout(resolve, jitter));
     }
@@ -93,10 +125,18 @@ export function parseChannelPage(
   const deproxyUrl = (raw: string): string => {
     try {
       const u = new URL(raw);
+      // 处理 jina.ai 代理
       if (u.hostname === "r.jina.ai") {
         const path = decodeURIComponent(u.pathname || "");
         if (path.startsWith("/http://") || path.startsWith("/https://")) {
           return path.slice(1);
+        }
+      }
+      // 处理自建 CF Worker 代理
+      if (u.hostname === "tg-proxy-panhub.ddns-updater.workers.dev") {
+        const path = u.pathname || "";
+        if (path.startsWith("/s/")) {
+          return `https://t.me${path}`;
         }
       }
       return raw;
@@ -109,6 +149,7 @@ export function parseChannelPage(
     const host = hostname.toLowerCase();
     if (host === "t.me" || host.endsWith(".t.me")) return "";
     if (host === "r.jina.ai") return "";
+    if (host.endsWith("workers.dev")) return ""; // 过滤 CF Worker 代理
     if (host.endsWith("alipan.com") || host.endsWith("aliyundrive.com")) return "aliyun";
     if (host === "pan.baidu.com") return "baidu";
     if (host === "pan.quark.cn") return "quark";
